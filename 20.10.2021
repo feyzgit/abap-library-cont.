@@ -1,0 +1,446 @@
+*&---------------------------------------------------------------------*
+*& Report ZFK_P_ISLEM
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zfk_p_islem.
+
+TABLES: zfk_islem.
+
+DATA: gt_ogrenci TYPE TABLE OF zfk_ogrenci,
+      gs_ogrenci TYPE  zfk_ogrenci,
+      gt_kitap   TYPE TABLE OF zfk_kitap,
+      gs_kitap   TYPE  zfk_kitap,
+      gt_yazar   TYPE TABLE OF zfk_yazar,
+      gs_yazar   TYPE  zfk_yazar,
+      gt_tur     TYPE TABLE OF zfk_tur,
+      gs_tur     TYPE  zfk_tur,
+      gt_islem   TYPE TABLE OF zfk_islem,
+      gs_islem   TYPE  zfk_islem,
+      gt_report  TYPE TABLE OF zfk_s_islem,
+      gs_report  TYPE zfk_s_islem.
+
+
+DATA:
+  gt_fieldcat TYPE slis_t_fieldcat_alv,
+  gs_fieldcat TYPE slis_fieldcat_alv,
+  gs_layout   TYPE slis_layout_alv.
+
+
+SELECTION-SCREEN BEGIN OF BLOCK b1.
+SELECT-OPTIONS: s_ktp_no FOR zfk_islem-kitapno,
+                s_ogr_no FOR zfk_islem-ogrencino.
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+LOAD-OF-PROGRAM.
+
+INITIALIZATION.
+
+AT SELECTION-SCREEN OUTPUT.
+
+AT SELECTION-SCREEN.
+
+START-OF-SELECTION.
+
+  PERFORM f_report_data.
+
+END-OF-SELECTION.
+
+  PERFORM f_merge.
+  PERFORM f_display.
+
+
+FORM f_merge.
+
+*  DATA: i_fcat     TYPE lvc_t_fcat,
+*        l_fcat     TYPE LINE OF lvc_t_fcat,
+*        r_fieldcat TYPE lvc_s_fcat,
+*        d_text(40) TYPE c.
+
+
+
+
+  gs_layout-window_titlebar = 'işlem structure'.
+  gs_layout-lights_fieldname = 'LIGHT'.
+  gs_layout-box_fieldname = 'SELKZ'.
+  gs_layout-colwidth_optimize = abap_true.
+  gs_layout-info_fieldname = 'COLOR'.
+
+  gs_fieldcat-fieldname = 'LIGHT'.
+  gs_fieldcat-ddictxt = 'M'.
+
+  CLEAR:gs_fieldcat.
+  gs_fieldcat-fieldname = 'KITAPNO'.
+  gs_fieldcat-emphasize = 'C310'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR:gs_fieldcat.
+  gs_fieldcat-fieldname = 'KITAPADI'.
+  gs_fieldcat-emphasize = 'C300'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR:gs_fieldcat.
+  gs_fieldcat-fieldname = 'YAZARNO'.
+  gs_fieldcat-emphasize = 'C311'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR:gs_fieldcat.
+  gs_fieldcat-fieldname = 'YAZARADI'.
+  gs_fieldcat-emphasize = 'C300'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR:gs_fieldcat.
+  gs_fieldcat-fieldname = 'TURNO'.
+  gs_fieldcat-emphasize = 'C311'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR:gs_fieldcat.
+  gs_fieldcat-fieldname = 'TURTANIMI'.
+  gs_fieldcat-emphasize = 'C300'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+
+  CALL FUNCTION 'REUSE_ALV_FIELDCATALOG_MERGE'
+    EXPORTING
+      i_structure_name = 'ZFK_S_ISLEM'
+    CHANGING
+      ct_fieldcat      = gt_fieldcat.
+
+  LOOP AT gt_fieldcat REFERENCE INTO DATA(r_fcat).
+    CASE r_fcat->fieldname.
+      WHEN 'SELKZ'.
+        r_fcat->tech = 'X'.
+      WHEN OTHERS.
+    ENDCASE.
+  ENDLOOP.
+ENDFORM.
+
+FORM sub_pf_status USING rt_extab TYPE slis_t_extab.
+  SET PF-STATUS 'GUI_STATUS'.
+*    data: ls_extab like LINE OF rt_extab.
+*    ls_extab-fcode = '&KTPVER'.
+*    APPEND ls_extab to rt_extab.
+*
+  SET PF-STATUS 'GUI_STATUS' EXCLUDING rt_extab.
+
+ENDFORM.
+
+FORM user_command USING b_ucomm LIKE sy-ucomm
+  rs_selfield TYPE slis_selfield.
+
+  CASE b_ucomm.
+    WHEN '&BACK' OR '&EXIT' OR '&CANC'.
+      LEAVE TO SCREEN 0.
+
+    WHEN '&KTPVER'.
+      CALL SCREEN 2000 STARTING AT 10 10
+                       ENDING AT 70 30.
+
+    WHEN '&KTPTESLIM'.
+
+      DATA: lv_sayac TYPE i.
+      CLEAR lv_sayac.
+      LOOP AT  gt_report INTO gs_report WHERE selkz = 'X' AND kitapteslim IS INITIAL.
+        ADD 1 TO lv_sayac.
+      ENDLOOP.
+      IF lv_sayac EQ 1.
+        CALL SCREEN 0200 STARTING AT 10 10
+                                 ENDING AT 70 30.
+      ELSE.
+        IF lv_sayac GT 1.
+          MESSAGE 'Lütfen 1 satır seçiniz.' TYPE 'I'.
+        ELSE.
+          MESSAGE 'Lütfen geçerli bir satır seçiniz.' TYPE 'I'.
+        ENDIF.
+
+      ENDIF.
+
+    WHEN '&SIL'.
+      READ TABLE gt_report INTO gs_report WITH KEY selkz = ' '.
+      IF sy-subrc = 0.
+        MESSAGE 'Geçerli bir satır seçin.' TYPE 'E'.
+      ENDIF.
+
+      DATA: ans TYPE c.
+      CALL FUNCTION 'POPUP_TO_CONFIRM'
+        EXPORTING
+          titlebar              = 'Title POPUP_TO_CONFIRM'
+          text_question         = 'işlem silinsin mi?'
+          text_button_1         = 'Tamam'
+          icon_button_1         = 'ICON_CHECKED'
+          text_button_2         = 'Çıkış'
+          icon_button_2         = 'ICON_CANCEL'
+          display_cancel_button = ' '
+          popup_type            = 'ICON_MESSAGE_ERROR'
+        IMPORTING
+          answer                = ans.
+      IF ans = 1.
+        LOOP AT gt_report INTO gs_report WHERE selkz = 'X'.
+*        READ TABLE gt_report INTO gs_report WITH KEY selkz = 'X'.
+*        IF sy-subrc = 0.
+          DELETE gt_report WHERE islemno = gs_report-islemno.
+          DELETE FROM zfk_islem WHERE islemno = gs_report-islemno .
+          MESSAGE 'İşlem silindi.' TYPE 'I'.
+*        ENDIF.
+        ENDLOOP.
+      ELSE.
+        RETURN.
+      ENDIF.
+
+    WHEN '&DEGIS'.
+
+      DATA: lv_sayac1 TYPE i.
+      CLEAR lv_sayac1.
+      LOOP AT  gt_report INTO gs_report WHERE selkz = 'X'.
+        ADD 1 TO lv_sayac1.
+      ENDLOOP.
+      IF lv_sayac1 EQ 1.
+        CALL SCREEN 0300 STARTING AT 10 10
+                                 ENDING AT 70 30.
+      ELSE.
+        IF lv_sayac1 GT 1.
+          MESSAGE 'Lütfen 1 satır seçiniz.' TYPE 'I'.
+        ELSE.
+          MESSAGE 'Lütfen geçerli bir satır seçiniz.' TYPE 'I'.
+        ENDIF.
+      ENDIF.
+  ENDCASE.
+
+*  PERFORM f_report_data.
+*  LOOP AT gt_report INTO gs_report.
+*    IF gs_report-light = 1.
+*      gs_report-color = 'C611'.
+*    ENDIF.
+*    MODIFY gt_report FROM gs_report.
+*  ENDLOOP.
+
+
+  rs_selfield-refresh = 'X'.
+  PERFORM f_light.
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_2000 OUTPUT
+*&------------------------------------------------------------------*
+MODULE status_2000 OUTPUT.
+  SET PF-STATUS 'GUI_2000'.
+  SET TITLEBAR 'TITLE_2000'.
+  PERFORM f_proc.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_2000  INPUT
+*&---------------------------------------------------------------------*
+MODULE user_command_2000 INPUT.
+  CASE sy-ucomm.
+    WHEN '&KAYDET'.
+      PERFORM f_islem_kaydet.
+    WHEN '&IPTAL'.
+      LEAVE TO SCREEN 0.
+  ENDCASE.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Form F_ISLEM_KAYDET
+*&---------------------------------------------------------------------*
+FORM f_islem_kaydet .
+
+  gs_islem-islemno = zfk_islem-islemno.
+  gs_islem-ogrencino = zfk_islem-ogrencino.
+  gs_islem-kitapno = zfk_islem-kitapno.
+  gs_islem-kitapalim = zfk_islem-kitapalim.
+  INSERT zfk_islem FROM gs_islem.
+
+  IF sy-subrc EQ 0.
+    MESSAGE 'Başarı ile kaydedildi.' TYPE 'I'.
+    CLEAR: gs_report.
+    MOVE-CORRESPONDING gs_islem TO gs_report.
+    SELECT SINGLE b~yazarno ,
+                  b~yazaradi,
+                  c~turno,
+                  c~turtanimi,
+                  a~kitapno,
+                  a~kitapadi
+      FROM zfk_kitap AS a
+      INNER JOIN zfk_yazar AS b ON b~yazarno = a~yazarno
+      INNER JOIN zfk_tur AS c ON c~turno = a~turno
+      INTO (@gs_report-yazarno,@gs_report-yazaradi,@gs_report-turno,@gs_report-turtanimi,@gs_report-kitapno,@gs_report-kitapadi)
+      WHERE a~kitapno = @gs_islem-kitapno.
+
+    READ TABLE gt_ogrenci INTO gs_ogrenci WITH KEY ogrencino = gs_islem-ogrencino.
+    IF sy-subrc = 0.
+      CONCATENATE gs_ogrenci-ogrenciadi gs_ogrenci-ogrencisoyadi INTO gs_report-adisoyadi SEPARATED BY ' '.
+    ENDIF.
+    gs_report-light = 2.
+    APPEND gs_report TO gt_report.
+    LEAVE TO SCREEN 0.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_PROC
+*&---------------------------------------------------------------------*
+FORM f_proc .
+  CLEAR: zfk_islem.
+  SELECT MAX( islemno ) FROM zfk_islem INTO zfk_islem-islemno.
+
+  ADD 1 TO zfk_islem-islemno.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_DISPLAY
+*&---------------------------------------------------------------------*
+
+FORM f_display .
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program       = sy-repid
+      i_callback_pf_status_set = 'SUB_PF_STATUS'
+      i_callback_user_command  = 'USER_COMMAND'
+      is_layout                = gs_layout
+      it_fieldcat              = gt_fieldcat
+    TABLES
+      t_outtab                 = gt_report.
+ENDFORM.
+FORM f_report_data .
+
+  SELECT * INTO TABLE gt_ogrenci FROM zfk_ogrenci.
+
+  SELECT * INTO CORRESPONDING FIELDS OF TABLE gt_report
+            FROM zfk_islem AS i
+            INNER JOIN  zfk_kitap AS k ON i~kitapno = k~kitapno
+            INNER JOIN  zfk_yazar AS y ON k~yazarno = y~yazarno
+            INNER JOIN  zfk_tur AS t ON k~turno = t~turno
+            WHERE i~kitapno IN s_ktp_no
+              AND i~ogrencino IN s_ogr_no
+              ORDER BY i~islemno ASCENDING.
+
+  PERFORM f_light.
+
+  LOOP AT gt_report INTO gs_report.
+    READ TABLE gt_ogrenci INTO gs_ogrenci WITH KEY ogrencino = gs_report-ogrencino.
+    IF sy-subrc = 0.
+      CONCATENATE gs_ogrenci-ogrenciadi gs_ogrenci-ogrencisoyadi INTO gs_report-adisoyadi SEPARATED BY space.
+      MODIFY gt_report FROM gs_report.
+    ENDIF.
+  ENDLOOP.
+
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0200 OUTPUT
+*&---------------------------------------------------------------------*
+MODULE status_0200 OUTPUT.
+  SET PF-STATUS 'GUI_0200'.
+  SET TITLEBAR 'TITLE_0200'.
+  PERFORM f_get_data.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0200  INPUT
+*&---------------------------------------------------------------------*
+MODULE user_command_0200 INPUT  .
+  CASE sy-ucomm .
+    WHEN '&KAYDET'.
+      UPDATE zfk_islem SET kitapteslim = zfk_islem-kitapteslim
+                       WHERE islemno = zfk_islem-islemno .
+      LOOP AT gt_report INTO gs_report WHERE selkz = 'X'.
+        gs_report-kitapteslim = zfk_islem-kitapteslim.
+        gs_report-light = '3'.
+        MODIFY gt_report FROM gs_report.
+      ENDLOOP.
+      MESSAGE 'Kayıt başarılı.' TYPE 'I'.
+      LEAVE TO SCREEN 0.
+    WHEN '&IPTAL'.
+      LEAVE TO SCREEN 0.
+  ENDCASE.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Form F_GET_DATA
+*&---------------------------------------------------------------------*
+FORM f_get_data .
+
+  READ TABLE gt_report INTO gs_report WITH KEY selkz = 'X'.
+
+  IF sy-subrc = 0.
+    gs_report-kitapteslim = sy-datum.
+    MOVE-CORRESPONDING gs_report TO zfk_islem.
+
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0300 OUTPUT
+*&---------------------------------------------------------------------*
+MODULE status_0300 OUTPUT.
+  SET PF-STATUS 'GUI_0200'.
+  SET TITLEBAR 'TITLE_0200'.
+  PERFORM f_data.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0300  INPUT
+*&---------------------------------------------------------------------*
+MODULE user_command_0300 INPUT.
+  CASE sy-ucomm.
+    WHEN '&KAYDET'.
+      PERFORM f_new_data.
+    WHEN '&IPTAL'.
+      LEAVE TO SCREEN 0.
+  ENDCASE.
+ENDMODULE.
+
+FORM f_data .
+  READ TABLE gt_report INTO gs_report WITH KEY selkz = 'X'.
+  IF sy-subrc = 0.
+    MOVE-CORRESPONDING gs_report TO zfk_islem.
+  ENDIF.
+ENDFORM.
+
+
+FORM f_new_data.
+  MODIFY zfk_islem.
+  CLEAR: gs_report.
+  MOVE-CORRESPONDING zfk_islem TO gs_report.
+  SELECT SINGLE b~yazarno ,
+                b~yazaradi,
+                c~turno,
+                c~turtanimi,
+                a~kitapno,
+                a~kitapadi
+    FROM zfk_kitap AS a
+    INNER JOIN zfk_yazar AS b ON b~yazarno = a~yazarno
+    INNER JOIN zfk_tur AS c ON c~turno = a~turno
+    INTO (@gs_report-yazarno,@gs_report-yazaradi,@gs_report-turno,@gs_report-turtanimi,@gs_report-kitapno,@gs_report-kitapadi)
+    WHERE a~kitapno = @zfk_islem-kitapno.
+
+  READ TABLE gt_ogrenci INTO gs_ogrenci WITH KEY ogrencino = zfk_islem-ogrencino.
+  IF sy-subrc = 0.
+    CONCATENATE gs_ogrenci-ogrenciadi gs_ogrenci-ogrencisoyadi INTO gs_report-adisoyadi SEPARATED BY ' '.
+  ENDIF.
+  MODIFY gt_report FROM gs_report TRANSPORTING ogrencino adisoyadi kitapno kitapadi yazarno yazaradi turno turtanimi kitapalim kitapteslim
+  WHERE islemno = zfk_islem-islemno.
+*    gs_report-light = 2.
+*    APPEND gs_report TO gt_report.
+  MESSAGE 'Kayıt güncellendi.' TYPE 'I'.
+  LEAVE TO SCREEN 0.
+*  ENDIF.
+
+ENDFORM.
+
+
+FORM f_light.
+  LOOP AT gt_report INTO gs_report.
+    IF gs_report-kitapteslim IS INITIAL.
+      IF sy-datum - gs_report-kitapalim GE 20.
+        gs_report-light = 1.
+        gs_report-color = 'C610'.
+      ELSE.
+        gs_report-light = 2.
+
+      ENDIF.
+    ELSE.
+      gs_report-light = 3.
+*      gs_report-color = 'C510'.
+    ENDIF.
+    MODIFY gt_report FROM gs_report.
+  ENDLOOP.
+
+ENDFORM.
