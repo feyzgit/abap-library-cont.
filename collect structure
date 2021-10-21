@@ -1,0 +1,63 @@
+*  LOOP AT lt_secim INTO ls_secim.
+*    CLEAR : gs_ozet.
+*    gs_ozet-ogrencino = ls_secim-ogrencino.
+*    gs_ozet-adisoyadi = ls_secim-adisoyadi.
+**    LOOP AT gt_report INTO gs_report WHERE ogrencino = ls_secim-ogrencino.
+**      ADD 1 TO gs_ozet-toplamkitap.
+**      IF gs_report-light = 1.
+**        ADD 1 TO gs_ozet-gecikenkitap.
+**        ADD 1 TO gs_ozet-kalankitap.
+**      ELSEIF gs_report-light = 2.
+**        ADD 1 TO gs_ozet-kalankitap.
+**      ELSEIF gs_report-light = 3.
+**        ADD 1 TO gs_ozet-teslimkitap.
+**      ENDIF.
+**    ENDLOOP.
+**    APPEND gs_ozet TO gt_ozet.
+**  ENDLOOP.
+
+
+
+TYPES :BEGIN OF ty_secim,
+           ogrencino TYPE zfk_ogrenci-ogrencino,
+           adisoyadi TYPE zfk_s_islem-adisoyadi,
+         END OF ty_secim.
+
+  DATA : lt_secim TYPE STANDARD TABLE OF ty_secim,
+         ls_secim TYPE ty_secim.
+
+  CLEAR : gt_ozet[].
+  LOOP AT gt_report INTO gs_report WHERE selkz = 'X'.
+    CLEAR : ls_secim.
+    ls_secim-ogrencino = gs_report-ogrencino.
+    ls_secim-adisoyadi = gs_report-adisoyadi.
+    APPEND ls_secim TO lt_secim.
+  ENDLOOP.
+  IF sy-subrc NE 0.
+    MOVE-CORRESPONDING gt_report[] TO lt_secim[].
+  ENDIF.
+  SORT lt_secim BY ogrencino.
+  DELETE ADJACENT DUPLICATES FROM lt_secim COMPARING ogrencino.
+    LOOP AT lt_secim INTO ls_secim.
+    CLEAR : gs_ozet.
+    gs_ozet-ogrencino = ls_secim-ogrencino.
+    gs_ozet-adisoyadi = ls_secim-adisoyadi.
+
+    LOOP AT gt_report INTO gs_report WHERE ogrencino = ls_secim-ogrencino.
+      gs_ozet-toplamkitap = 1.
+
+      IF gs_report-light = 1.
+        gs_ozet-gecikenkitap = 1.
+        gs_ozet-kalankitap = 1.
+      ELSEIF gs_report-light = 2.
+        gs_ozet-kalankitap = 1.
+      ELSEIF gs_report-light = 3.
+        gs_ozet-teslimkitap = 1.
+      ENDIF.
+      COLLECT gs_ozet INTO gt_ozet.
+      gs_ozet-teslimkitap = ''.
+      gs_ozet-kalankitap = ''.
+      gs_ozet-gecikenkitap = ''.
+    ENDLOOP.
+  ENDLOOP.
+  
